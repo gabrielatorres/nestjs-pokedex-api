@@ -9,6 +9,7 @@ import { CreatePokemonDto } from './dto/create-pokemon.dto';
 import { UpdatePokemonDto } from './dto/update-pokemon.dto';
 import { isValidObjectId, Model } from 'mongoose';
 import { Pokemon } from './entities/pokemon.entity';
+import { PaginatioDto } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class PokemonService {
@@ -27,8 +28,9 @@ export class PokemonService {
     }
   }
 
-  findAll() {
-    return `This action returns all pokemon`;
+  findAll(paginatioDto: PaginatioDto) {
+    const { limit = 10, offset = 0 } = paginatioDto;
+    return this.pokemonModel.find().limit(limit).skip(offset);
   }
 
   async findOne(id: string) {
@@ -53,14 +55,23 @@ export class PokemonService {
     return pokemon;
   }
 
-  async update(id: string, updatePokemonDto: UpdatePokemonDto) {
+  async update(
+    id: string,
+    updatePokemonDto: UpdatePokemonDto,
+  ): Promise<Pokemon> {
     const pokemon = await this.findOne(id);
     try {
       if (updatePokemonDto.name)
-        updatePokemonDto.name = updatePokemonDto.name?.toLowerCase();
+        updatePokemonDto.name = updatePokemonDto.name.toLowerCase();
 
-      await pokemon.updateOne(updatePokemonDto, { new: true }); // Regresa el nuevo objeto actualizado
-      return { ...pokemon.toJSON(), ...updatePokemonDto };
+      const updatedPokemon = await this.pokemonModel.findByIdAndUpdate(
+        pokemon._id,
+        updatePokemonDto,
+        { new: true },
+      );
+
+      if (!updatedPokemon) throw new NotFoundException(`Pokemon not found`);
+      return updatedPokemon;
     } catch (error) {
       this.handleException(error);
     }
@@ -76,11 +87,12 @@ export class PokemonService {
     return;
   }
 
-  private handleException(error: any) {
+  private handleException(error: unknown): never {
     console.log(error);
-    if (error.code === 11000) {
+    const mongoError = error as { code?: number; keyValue?: unknown };
+    if (mongoError.code === 11000) {
       throw new BadRequestException(
-        `Pokemon exists in DB ${JSON.stringify(error.keyValue)}`,
+        `Pokemon exists in DB ${JSON.stringify(mongoError.keyValue)}`,
       );
     }
     throw new InternalServerErrorException(
