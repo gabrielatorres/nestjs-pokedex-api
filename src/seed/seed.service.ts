@@ -1,23 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import axios, { AxiosInstance } from 'axios'; //Dependencia oculta
 import { PokeResponse } from './interfaces/poke-response.interface';
 import { InjectModel } from '@nestjs/mongoose';
 import { Pokemon } from '../pokemon/entities/pokemon.entity';
 import { Model } from 'mongoose';
+import { AxiosAdapter } from '../common/adapters/axios.adapter';
 
 @Injectable()
 export class SeedService {
-  private readonly axios: AxiosInstance = axios; // Se visibiliza la dependencia en la clase meiante una instancia
-
   constructor(
     @InjectModel(Pokemon.name) // Inyección de dependencias e inyección de modelo por Nest
     private readonly pokemonModel: Model<Pokemon>,
+    private readonly http: AxiosAdapter,
   ) {}
 
   async executeSeed() {
     await this.pokemonModel.deleteMany({}); // DELETE * FROM pokemons;
 
-    const { data } = await this.axios.get<PokeResponse>(
+    const data = await this.http.get<PokeResponse>(
       'https://pokeapi.co/api/v2/pokemon?limit=151',
     );
 
